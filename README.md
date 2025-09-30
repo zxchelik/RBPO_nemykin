@@ -1,53 +1,147 @@
-# SecDev Course Template
+# Task Tracker
 
-Стартовый шаблон для студенческого репозитория (HSE SecDev 2025).
+Личный таск-менеджер с приоритетами, дедлайнами и фильтрацией.  
+MVP включает CRUD задач, авторизацию пользователей и работу только с собственными задачами.
 
-## Быстрый старт
+## Содержание
+- [Содержание](#содержание)
+- [Требования окружения](#требования-окружения)
+- [Установка и запуск](#установка-и-запуск)
+- [Конфигурация](#конфигурация)
+- [Тесты и качество](#тесты-и-качество)
+- [API (если применимо)](#api-если-применимо)
+- [Архитектура](#архитектура)
+- [Безопасность](#безопасность)
+- [Отладка CI](#отладка-ci)
+- [Лицензия](#лицензия)
+
+---
+
+## Требования окружения
+- Python >= 3.10  
+- Git  
+- make (опционально)  
+- Docker (опционально для dev/prod)
+
+---
+
+## Установка и запуск
+### Локально
 ```bash
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\Activate.ps1
-pip install -r requirements.txt -r requirements-dev.txt
-pre-commit install
+pip install -r requirements.txt
+````
+
+Запуск приложения:
+
+```bash
 uvicorn app.main:app --reload
 ```
 
-## Ритуал перед PR
+### В Docker
+
 ```bash
-ruff check --fix .
-black .
-isort .
+docker compose -f compose.yaml up -d
+```
+
+---
+
+## Конфигурация
+
+* Переменные среды:
+
+  * `APP_ENV` — окружение (`dev` / `prod`)
+  * `DB_URL` — URL подключения к БД
+* Секреты (JWT, пароли, ключи) не хранятся в репозитории. Используем `.env` или GitHub Secrets/Environments.
+* Логи сохраняются в `logs/`.
+
+---
+
+## Тесты и качество
+
+```bash
+ruff check --fix . && black . && isort .
 pytest -q
 pre-commit run --all-files
 ```
 
-## Тесты
-```bash
-pytest -q
-```
+Покрытие тестами планируется для:
 
-## CI
-В репозитории настроен workflow **CI** (GitHub Actions) — required check для `main`.
-Badge добавится автоматически после загрузки шаблона в GitHub.
+* CRUD задач
+* Авторизации и доступа только к своим задачам
+* Фильтрации задач по статусу и дедлайну
 
-## Контейнеры
-```bash
-docker build -t secdev-app .
-docker run --rm -p 8000:8000 secdev-app
-# или
-docker compose up --build
-```
+---
 
-## Эндпойнты
-- `GET /health` → `{"status": "ok"}`
-- `POST /items?name=...` — демо-сущность
-- `GET /items/{id}`
+## API 
 
-## Формат ошибок
-Все ошибки — JSON-обёртка:
+* Базовый URL: `/api/v1`
+* Примеры эндпоинтов:
+
+  * `POST /auth/login` — вход пользователя
+  * `POST /tasks` — создать задачу
+  * `GET /tasks` — получить список задач
+  * `GET /tasks/{id}` — получить задачу по ID
+  * `PUT /tasks/{id}` — обновить задачу
+  * `DELETE /tasks/{id}` — удалить задачу
+
+Формат ошибок:
+
 ```json
-{
-  "error": {"code": "not_found", "message": "item not found"}
+{ 
+  "code": "VALIDATION_ERROR", 
+  "message": "...", 
+  "details": {...} 
 }
 ```
 
-См. также: `SECURITY.md`, `.pre-commit-config.yaml`, `.github/workflows/ci.yml`.
+---
+
+## Архитектура
+
+* `app/main.py` — точка входа FastAPI
+* `app/api/` — маршруты (auth, tasks)
+* `app/models/` — SQLAlchemy модели
+* `app/schemas/` — Pydantic схемы
+* `app/services/` — бизнес-логика
+* `app/core/` — конфиги, зависимости, настройки БД
+* `app/tests/` — тесты Pytest
+* `app/logs/` — логи приложения
+
+**Доменные правила:**
+
+* Пользователь работает только со своими задачами (**owner-only**)
+* Статусы задач: `todo`, `in_progress`, `done`
+* Приоритет: `low`, `medium`, `high`
+* Подготовка к будущим фичам: Канбан, повторяющиеся задачи, уведомления
+
+---
+
+## Безопасность
+
+* Валидация ввода и статусов задач
+* Авторизация через JWT, хранение паролей в захэшированном виде
+* Доступ только к своим задачам
+* Секреты и конфигурации вне репозитория
+* Логи не содержат чувствительных данных
+
+---
+
+## Отладка CI
+
+* Смотрите вкладку Actions → последний Failed шаг
+* Типовые исправления:
+
+```bash
+ruff --fix .
+black .
+isort .
+pytest -q
+```
+
+---
+
+## Лицензия
+
+MIT
