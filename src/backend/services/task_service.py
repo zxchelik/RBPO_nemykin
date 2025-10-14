@@ -1,15 +1,13 @@
-import uuid
 import datetime as dt
+import uuid
 from typing import Optional, Sequence
 
+from adapters.db.repositories.task_repo import TaskRepository
+from adapters.db.session_context import get_async_session
+from domain.value_objects.task_priority import TaskPriority
+from domain.value_objects.task_state import TaskState
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from adapters.db.repositories.task_repo import TaskRepository
-from adapters.db.repositories.base import NotFoundError as RepoNotFound, ForbiddenError as RepoForbidden
-from adapters.db.session_context import get_async_session
-from domain.value_objects.task_state import TaskState
-from domain.value_objects.task_priority import TaskPriority
 
 
 class TaskService:
@@ -81,18 +79,31 @@ class TaskService:
     async def delete_task(self, task_id: uuid.UUID, *, owner_id: uuid.UUID) -> None:
         await self.tasks.delete(task_id, owner_id=owner_id)
 
-    async def count(self, *, owner_id: uuid.UUID, status: Optional[TaskState] = None, due_before: Optional[dt.datetime] = None) -> int:
-        return await self.tasks.count(owner_id=owner_id, state=status, due_before=due_before)
+    async def count(
+        self,
+        *,
+        owner_id: uuid.UUID,
+        status: Optional[TaskState] = None,
+        due_before: Optional[dt.datetime] = None,
+    ) -> int:
+        return await self.tasks.count(
+            owner_id=owner_id, state=status, due_before=due_before
+        )
 
     async def admin_list_all(
-            self,
-            *,
-            status: Optional[TaskState] = None,
-            due_before: Optional[dt.datetime] = None,
-            limit: int = 100,
-            offset: int = 0,
+        self,
+        *,
+        status: Optional[TaskState] = None,
+        due_before: Optional[dt.datetime] = None,
+        limit: int = 100,
+        offset: int = 0,
     ):
-        return await self.tasks.admin_list_all(state=status, due_before=due_before, limit=limit, offset=offset)
+        return await self.tasks.admin_list_all(
+            state=status, due_before=due_before, limit=limit, offset=offset
+        )
 
-async def get_task_service(session: AsyncSession = Depends(get_async_session)) -> TaskService:
+
+async def get_task_service(
+    session: AsyncSession = Depends(get_async_session),
+) -> TaskService:
     return TaskService(session)

@@ -1,10 +1,9 @@
 import uuid
 
-from sqlalchemy import text, false
-from sqlalchemy.orm import Mapped, mapped_column
+from adapters.db.models.base import Base, MyLongSTR, MyShortSTR
+from sqlalchemy import false, text
 from sqlalchemy.dialects.postgresql import UUID
-
-from adapters.db.models.base import Base, MyShortSTR, MyLongSTR
+from sqlalchemy.orm import Mapped, mapped_column
 
 
 class User(Base):

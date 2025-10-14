@@ -1,10 +1,10 @@
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
 from app.api.v1.routers import auth as auth_router
 from app.api.v1.routers import tasks as tasks_router
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 
 
 @asynccontextmanager
@@ -16,6 +16,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(lifespan=lifespan, title="SecDev Course App", version="0.1.0")
+
 
 class ApiError(Exception):
     def __init__(self, code: str, message: str, status: int = 400):

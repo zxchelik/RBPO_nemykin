@@ -1,10 +1,10 @@
 import uuid
 from typing import Optional
 
+from adapters.db.models.user import User
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from adapters.db.models.user import User
 from .base import BaseRepository, NotFoundError
 
 
@@ -13,12 +13,12 @@ class UserRepository(BaseRepository):
         super().__init__(session)
 
     async def create(
-            self,
-            *,
-            login: str,
-            email: str,
-            pass_hash: str,
-            is_admin: bool = False,
+        self,
+        *,
+        login: str,
+        email: str,
+        pass_hash: str,
+        is_admin: bool = False,
     ) -> User:
         user = User(login=login, email=email, pass_hash=pass_hash, is_admin=is_admin)
         async with self._transaction():

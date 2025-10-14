@@ -1,10 +1,12 @@
 from __future__ import annotations
-import uuid
+
 import datetime as dt
+import uuid
 from typing import Optional
-from pydantic import BaseModel, EmailStr
-from domain.value_objects.task_state import TaskState
+
 from domain.value_objects.task_priority import TaskPriority
+from domain.value_objects.task_state import TaskState
+from pydantic import BaseModel, EmailStr
 
 
 # -------- Auth --------
@@ -28,10 +30,11 @@ class UserRead(BaseModel):
     class Config:
         from_attributes = True
 
+
 class UserCreate(BaseModel):
-    login:str
-    email:EmailStr
-    password:str
+    login: str
+    email: EmailStr
+    password: str
 
 
 # -------- Tasks --------

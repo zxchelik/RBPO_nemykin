@@ -1,13 +1,13 @@
 import uuid
 from typing import TYPE_CHECKING
 
-from sqlalchemy import text, Enum as SQLEnum, ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.dialects.postgresql import UUID
-
-from adapters.db.models.base import Base, MyShortSTR, MyLongSTR
+from adapters.db.models.base import Base, MyLongSTR, MyShortSTR
 from domain.value_objects.task_priority import TaskPriority
 from domain.value_objects.task_state import TaskState
+from sqlalchemy import Enum as SQLEnum
+from sqlalchemy import ForeignKey, text
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 if TYPE_CHECKING:
     from adapters.db.models.user import User
@@ -54,8 +54,12 @@ class Task(Base):
     )
     owner_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("users.id", ondelete="CASCADE", onupdate="CASCADE",),
-        index=True
+        ForeignKey(
+            "users.id",
+            ondelete="CASCADE",
+            onupdate="CASCADE",
+        ),
+        index=True,
     )
 
     owner: Mapped["User"] = relationship(lazy="selectin")

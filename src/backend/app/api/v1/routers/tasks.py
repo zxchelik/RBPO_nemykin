@@ -1,11 +1,11 @@
-from fastapi import APIRouter, Depends, Query
-import uuid
 import datetime as dt
-from typing import Optional, Sequence
+import uuid
+from typing import Optional
 
-from app.api.v1.deps.auth import get_current_user, admin_required
-from app.api.v1.schemas import TaskRead, TaskCreate, TaskUpdate
+from app.api.v1.deps.auth import admin_required, get_current_user
+from app.api.v1.schemas import TaskCreate, TaskRead, TaskUpdate
 from domain.value_objects.task_state import TaskState
+from fastapi import APIRouter, Depends, Query
 from services.fastapi_adapters import map_service_errors
 from services.task_service import TaskService, get_task_service
 
@@ -16,7 +16,7 @@ router = APIRouter(prefix="/tasks", tags=["tasks"])
 async def create_task(
     payload: TaskCreate,
     svc: TaskService = Depends(get_task_service),
-    current_user = Depends(get_current_user),
+    current_user=Depends(get_current_user),
 ):
     try:
         task = await svc.create_task(
@@ -39,7 +39,7 @@ async def list_tasks(
     limit: int = 50,
     offset: int = 0,
     svc: TaskService = Depends(get_task_service),
-    current_user = Depends(get_current_user),
+    current_user=Depends(get_current_user),
 ):
     try:
         tasks = await svc.list_tasks(
@@ -55,7 +55,11 @@ async def list_tasks(
 
 
 @router.get("/{task_id}", response_model=TaskRead)
-async def get_task(task_id: uuid.UUID, svc: TaskService = Depends(get_task_service), current_user = Depends(get_current_user)):
+async def get_task(
+    task_id: uuid.UUID,
+    svc: TaskService = Depends(get_task_service),
+    current_user=Depends(get_current_user),
+):
     try:
         return await svc.get_task(task_id, owner_id=current_user.id)
     except Exception as e:
@@ -67,7 +71,7 @@ async def update_task(
     task_id: uuid.UUID,
     payload: TaskUpdate,
     svc: TaskService = Depends(get_task_service),
-    current_user = Depends(get_current_user),
+    current_user=Depends(get_current_user),
 ):
     try:
         return await svc.update_task(
@@ -84,12 +88,17 @@ async def update_task(
 
 
 @router.delete("/{task_id}", status_code=204)
-async def delete_task(task_id: uuid.UUID, svc: TaskService = Depends(get_task_service), current_user = Depends(get_current_user)):
+async def delete_task(
+    task_id: uuid.UUID,
+    svc: TaskService = Depends(get_task_service),
+    current_user=Depends(get_current_user),
+):
     try:
         await svc.delete_task(task_id, owner_id=current_user.id)
         return {"ok": True}
     except Exception as e:
         map_service_errors(e)
+
 
 # ------------------------------ Admin endpoints ------------------------------
 admin_router = APIRouter(prefix="/admin/tasks", tags=["admin:tasks"])
@@ -102,9 +111,11 @@ async def admin_list_all_tasks(
     limit: int = 100,
     offset: int = 0,
     svc: TaskService = Depends(get_task_service),
-    _admin = Depends(admin_required),
+    _admin=Depends(admin_required),
 ):
     try:
-        return await svc.admin_list_all(status=status, due_before=due_before, limit=limit, offset=offset)
+        return await svc.admin_list_all(
+            status=status, due_before=due_before, limit=limit, offset=offset
+        )
     except Exception as e:
         map_service_errors(e)

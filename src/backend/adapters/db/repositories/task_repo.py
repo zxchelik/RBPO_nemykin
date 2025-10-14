@@ -1,15 +1,15 @@
-import uuid
 import datetime as dt
-from typing import Optional, Sequence, Iterable
-
-from sqlalchemy import select, and_, func
-from sqlalchemy.orm import selectinload
-from sqlalchemy.ext.asyncio import AsyncSession
+import uuid
+from typing import Optional, Sequence
 
 from adapters.db.models.task import Task
-from domain.value_objects.task_state import TaskState
 from domain.value_objects.task_priority import TaskPriority
-from .base import BaseRepository, NotFoundError, ForbiddenError
+from domain.value_objects.task_state import TaskState
+from sqlalchemy import and_, func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
+from .base import BaseRepository, ForbiddenError, NotFoundError
 
 
 class TaskRepository(BaseRepository):
@@ -87,7 +87,10 @@ class TaskRepository(BaseRepository):
             due_col = getattr(Task, "due_at")
             stmt = stmt.order_by(due_col.asc().nulls_last(), Task.priority.desc())
         else:
-            stmt = stmt.order_by(Task.priority.desc(), Task.created_at.asc() if hasattr(Task, "created_at") else Task.id.asc())
+            stmt = stmt.order_by(
+                Task.priority.desc(),
+                Task.created_at.asc() if hasattr(Task, "created_at") else Task.id.asc(),
+            )
 
         res = await self.session.execute(stmt)
         return list(res.scalars().all())
@@ -138,16 +141,20 @@ class TaskRepository(BaseRepository):
         if due_before is not None and hasattr(Task, "due_at"):
             filters.append(getattr(Task, "due_at") < due_before)  # type: ignore[misc]
 
-        res = await self.session.execute(select(func.count()).select_from(select(Task.id).where(and_(*filters)).subquery()))
+        res = await self.session.execute(
+            select(func.count()).select_from(
+                select(Task.id).where(and_(*filters)).subquery()
+            )
+        )
         return int(res.scalar_one())
 
     async def admin_list_all(
-            self,
-            *,
-            state: Optional[TaskState] = None,
-            due_before: Optional[dt.datetime] = None,
-            limit: int = 100,
-            offset: int = 0,
+        self,
+        *,
+        state: Optional[TaskState] = None,
+        due_before: Optional[dt.datetime] = None,
+        limit: int = 100,
+        offset: int = 0,
     ) -> Sequence[Task]:
         filters = []
         if state is not None:
@@ -163,7 +170,9 @@ class TaskRepository(BaseRepository):
             .offset(offset)
         )
         if hasattr(Task, "due_at"):
-            stmt = stmt.order_by(getattr(Task, "due_at").asc().nulls_last(), Task.priority.desc())
+            stmt = stmt.order_by(
+                getattr(Task, "due_at").asc().nulls_last(), Task.priority.desc()
+            )
         else:
             stmt = stmt.order_by(Task.priority.desc(), Task.id.asc())
 
