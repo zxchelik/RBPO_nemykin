@@ -4,7 +4,7 @@
 flowchart LR
     EXT[External User] -->|F1: HTTPS /login| GW[API Gateway]
     GW -->|F2: Auth request| AUTH[Auth Service]
-    AUTH -->|F3: SQL (credentials check)| DB[(Users DB)]
+    AUTH -->|F3: SQL credentials check| DB[(Users DB)]
     EXT -->|F4: HTTPS /tasks CRUD| GW
     GW -->|F5: Internal gRPC| TASK[Task Service]
     TASK -->|F6: SQL read/write| DB2[(Tasks DB)]
