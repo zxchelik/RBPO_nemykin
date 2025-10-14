@@ -1,0 +1,12 @@
+database:
+  host: ${DB_HOST}
+  port: 5432
+  user: ${DB_USER}
+  password: ${DB_PASSWORD}
+  name: task-manager
+  driver: asyncpg
+  database_system: postgresql
+security:
+  access_token_expire_minute : 60
+  secret_key: ${SECRET_KEY}
+  algorithm: HS256
