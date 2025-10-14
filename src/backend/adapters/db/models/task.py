@@ -31,9 +31,7 @@ class Task(Base):
             create_constraint=True,  # включаем CHECK
             validate_strings=True,  # проверка на уровне Python
             name="task_state",  # имя для CHECK (важно для alembic)
-            values_callable=lambda e: [
-                m.value for m in e
-            ],  # чтобы в бд был value, а не name
+            values_callable=lambda e: [m.value for m in e],  # чтобы в бд был value, а не name
         ),
         nullable=False,
         index=True,
@@ -45,9 +43,7 @@ class Task(Base):
             create_constraint=True,  # включаем CHECK
             validate_strings=True,  # проверка на уровне Python
             name="task_priority",  # имя для CHECK (важно для alembic)
-            values_callable=lambda e: [
-                m.value for m in e
-            ],  # чтобы в бд был value, а не name
+            values_callable=lambda e: [m.value for m in e],  # чтобы в бд был value, а не name
         ),
         nullable=False,
         index=True,

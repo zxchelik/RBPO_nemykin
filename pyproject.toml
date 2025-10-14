@@ -7,3 +7,8 @@ exclude = ["venv",".venv","build","dist"]
 [tool.isort]
 profile = "black"
 line_length = 100
+
+# pyproject.toml
+[tool.black]
+line-length = 100
+target-version = ["py311"]

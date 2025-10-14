@@ -13,16 +13,12 @@ def verify_password(plain_password: str, password_hash: str) -> bool:
     return pwd_context.verify(plain_password, password_hash)
 
 
-def create_access_token(
-    *, sub: uuid.UUID, expires_minutes: Optional[int] = None
-) -> str:
+def create_access_token(*, sub: uuid.UUID, expires_minutes: Optional[int] = None) -> str:
     expire = datetime.now(tz=timezone.utc) + timedelta(
         minutes=expires_minutes or config.security.access_token_expire_minute
     )
     payload = {"sub": str(sub), "exp": int(expire.timestamp())}
-    return jwt.encode(
-        payload, config.security.secret_key, algorithm=config.security.algorithm
-    )
+    return jwt.encode(payload, config.security.secret_key, algorithm=config.security.algorithm)
 
 
 def decode_token(token: str) -> uuid.UUID:

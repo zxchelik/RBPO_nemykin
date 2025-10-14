@@ -25,30 +25,20 @@ def upgrade() -> None:
 
     op.create_table(
         "users",
-        sa.Column(
-            "id", sa.UUID(), server_default=sa.text("gen_random_uuid()"), nullable=False
-        ),
+        sa.Column("id", sa.UUID(), server_default=sa.text("gen_random_uuid()"), nullable=False),
         sa.Column("login", sa.String(length=63), nullable=False),
         sa.Column("email", sa.String(length=63), nullable=False),
         sa.Column("pass_hash", sa.String(length=255), nullable=False),
-        sa.Column(
-            "is_admin", sa.Boolean(), server_default=sa.text("false"), nullable=False
-        ),
-        sa.Column(
-            "created", sa.DateTime(), server_default=sa.text("now()"), nullable=False
-        ),
-        sa.Column(
-            "updated", sa.DateTime(), server_default=sa.text("now()"), nullable=False
-        ),
+        sa.Column("is_admin", sa.Boolean(), server_default=sa.text("false"), nullable=False),
+        sa.Column("created", sa.DateTime(), server_default=sa.text("now()"), nullable=False),
+        sa.Column("updated", sa.DateTime(), server_default=sa.text("now()"), nullable=False),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("email"),
         sa.UniqueConstraint("login"),
     )
     op.create_table(
         "tasks",
-        sa.Column(
-            "id", sa.UUID(), server_default=sa.text("gen_random_uuid()"), nullable=False
-        ),
+        sa.Column("id", sa.UUID(), server_default=sa.text("gen_random_uuid()"), nullable=False),
         sa.Column("name", sa.String(length=63), nullable=False),
         sa.Column("description", sa.String(length=255), nullable=False),
         sa.Column(
@@ -76,15 +66,9 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.Column("owner_id", sa.UUID(), nullable=False),
-        sa.Column(
-            "created", sa.DateTime(), server_default=sa.text("now()"), nullable=False
-        ),
-        sa.Column(
-            "updated", sa.DateTime(), server_default=sa.text("now()"), nullable=False
-        ),
-        sa.ForeignKeyConstraint(
-            ["owner_id"], ["users.id"], onupdate="CASCADE", ondelete="CASCADE"
-        ),
+        sa.Column("created", sa.DateTime(), server_default=sa.text("now()"), nullable=False),
+        sa.Column("updated", sa.DateTime(), server_default=sa.text("now()"), nullable=False),
+        sa.ForeignKeyConstraint(["owner_id"], ["users.id"], onupdate="CASCADE", ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(op.f("ix_tasks_owner_id"), "tasks", ["owner_id"], unique=False)

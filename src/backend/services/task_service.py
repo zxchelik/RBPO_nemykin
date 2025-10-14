@@ -86,9 +86,7 @@ class TaskService:
         status: Optional[TaskState] = None,
         due_before: Optional[dt.datetime] = None,
     ) -> int:
-        return await self.tasks.count(
-            owner_id=owner_id, state=status, due_before=due_before
-        )
+        return await self.tasks.count(owner_id=owner_id, state=status, due_before=due_before)
 
     async def admin_list_all(
         self,

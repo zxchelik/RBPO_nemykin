@@ -142,9 +142,7 @@ class TaskRepository(BaseRepository):
             filters.append(getattr(Task, "due_at") < due_before)  # type: ignore[misc]
 
         res = await self.session.execute(
-            select(func.count()).select_from(
-                select(Task.id).where(and_(*filters)).subquery()
-            )
+            select(func.count()).select_from(select(Task.id).where(and_(*filters)).subquery())
         )
         return int(res.scalar_one())
 
@@ -170,9 +168,7 @@ class TaskRepository(BaseRepository):
             .offset(offset)
         )
         if hasattr(Task, "due_at"):
-            stmt = stmt.order_by(
-                getattr(Task, "due_at").asc().nulls_last(), Task.priority.desc()
-            )
+            stmt = stmt.order_by(getattr(Task, "due_at").asc().nulls_last(), Task.priority.desc())
         else:
             stmt = stmt.order_by(Task.priority.desc(), Task.id.asc())
 

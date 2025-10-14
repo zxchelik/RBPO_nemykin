@@ -17,9 +17,7 @@ class UserService:
         self.users = UserRepository(session)
 
     # Registration with uniqueness checks
-    async def register(
-        self, *, login: str, email: str, pass_hash: str, is_admin: bool = False
-    ):
+    async def register(self, *, login: str, email: str, pass_hash: str, is_admin: bool = False):
         if await self.users.get_by_login(login):
             raise ConflictError("login is already taken")
         if await self.users.get_by_email(email):

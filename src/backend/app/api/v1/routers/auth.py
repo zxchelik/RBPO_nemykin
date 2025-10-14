@@ -28,9 +28,7 @@ async def login_for_access_token(
 
 
 @router.post("/register", response_model=UserRead, status_code=201)
-async def register_user(
-    payload: UserCreate, session: AsyncSession = Depends(get_async_session)
-):
+async def register_user(payload: UserCreate, session: AsyncSession = Depends(get_async_session)):
     svc = UserService(session)
     try:
         user = await svc.register(
