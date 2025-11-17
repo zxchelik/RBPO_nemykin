@@ -49,9 +49,7 @@ def problem_response(
     return JSONResponse(status_code=status_code, content=problem)
 
 
-async def http_exception_handler(
-    request: Request, exc: StarletteHTTPException
-) -> JSONResponse:
+async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
     """
     Хэндлер для HTTPException (404, 401, 403 и т.п.)
     """
@@ -89,9 +87,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
     Хэндлер для всех неожиданных ошибок.
     """
     correlation_id = get_correlation_id(request)
-    logger.exception(
-        "Unhandled exception (correlation_id=%s): %s", correlation_id, exc
-    )
+    logger.exception("Unhandled exception (correlation_id=%s): %s", correlation_id, exc)
 
     return problem_response(
         request,

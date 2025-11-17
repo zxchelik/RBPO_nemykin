@@ -1,9 +1,8 @@
 from pathlib import Path
 from typing import Tuple
 
-from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
-
 from app.core import errors as error_handlers
+from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
 
 router = APIRouter(prefix="/uploads", tags=["uploads"])
 

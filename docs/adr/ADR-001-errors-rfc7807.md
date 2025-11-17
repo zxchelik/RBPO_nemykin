@@ -15,7 +15,7 @@ API Task Tracker должен предоставлять клиенту безо
 Это создаёт риск утечки технических деталей и осложняет сопровождение.
 
 Связь с предыдущими практиками:
-- **NFR-SEC-05** — Логирование ошибок с ключевыми метаданными (user_id/timestamp/correlation) 
+- **NFR-SEC-05** — Логирование ошибок с ключевыми метаданными (user_id/timestamp/correlation)
 - Требования P04: обработка ошибок при работе с задачами (валидация)
 - Риск: `RISK-API-DetailsLeak` — раскрытие внутренних сообщений в API-ответах
 
@@ -61,8 +61,8 @@ API Task Tracker должен предоставлять клиенту безо
 
 - Связанные NFR: `NFR-SEC-05` (логирование ошибок)
 - Риск: `RISK-API-DetailsLeak`
-- Проверка:  
-  - `tests/test_errors_rfc7807.py`  
+- Проверка:
+  - `tests/test_errors_rfc7807.py`
   - CI: pytest + linters
 
 ## Risk Closure Criteria

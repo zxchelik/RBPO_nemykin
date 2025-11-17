@@ -1,14 +1,14 @@
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
-from fastapi.exceptions import RequestValidationError
-
-from app.api.v1.routers import auth as auth_router, uploads as uploads_router
+from app.api.v1.routers import auth as auth_router
 from app.api.v1.routers import tasks as tasks_router
+from app.api.v1.routers import uploads as uploads_router
 from app.core import errors as error_handlers
-from starlette.exceptions import HTTPException as StarletteHTTPException
-from fastapi import FastAPI, HTTPException, Request, APIRouter
+from fastapi import APIRouter, FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 
 @asynccontextmanager
@@ -43,6 +43,7 @@ class ApiError(Exception):
         self.message = message
         self.status = status
 
+
 @app.middleware("http")
 async def add_correlation_id_header(request: Request, call_next):
     """
@@ -52,6 +53,7 @@ async def add_correlation_id_header(request: Request, call_next):
     response = await call_next(request)
     response.headers["X-Correlation-ID"] = cid
     return response
+
 
 @app.exception_handler(ApiError)
 async def api_error_handler(request: Request, exc: ApiError):
