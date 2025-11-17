@@ -1,17 +1,36 @@
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
-from app.api.v1.routers import auth as auth_router
+from fastapi.exceptions import RequestValidationError
+
+from app.api.v1.routers import auth as auth_router, uploads as uploads_router
 from app.api.v1.routers import tasks as tasks_router
-from fastapi import FastAPI, HTTPException, Request
+from app.core import errors as error_handlers
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from fastapi import FastAPI, HTTPException, Request, APIRouter
 from fastapi.responses import JSONResponse
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    app.include_router(auth_router.router)
-    app.include_router(tasks_router.router)
-    app.include_router(tasks_router.admin_router)
+    r = APIRouter(prefix="/api/v1")
+    app.add_exception_handler(
+        StarletteHTTPException,
+        error_handlers.http_exception_handler,
+    )
+    app.add_exception_handler(
+        RequestValidationError,
+        error_handlers.validation_exception_handler,
+    )
+    app.add_exception_handler(
+        Exception,
+        error_handlers.unhandled_exception_handler,
+    )
+    r.include_router(uploads_router.router)
+    r.include_router(auth_router.router)
+    r.include_router(tasks_router.router)
+    r.include_router(tasks_router.admin_router)
+    app.include_router(r)
     yield
 
 
@@ -24,6 +43,15 @@ class ApiError(Exception):
         self.message = message
         self.status = status
 
+@app.middleware("http")
+async def add_correlation_id_header(request: Request, call_next):
+    """
+    Middleware: гарантирует наличие correlation_id и добавляет его в заголовок ответа.
+    """
+    cid = error_handlers.get_correlation_id(request)
+    response = await call_next(request)
+    response.headers["X-Correlation-ID"] = cid
+    return response
 
 @app.exception_handler(ApiError)
 async def api_error_handler(request: Request, exc: ApiError):
