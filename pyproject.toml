@@ -12,3 +12,26 @@ line_length = 100
 [tool.black]
 line-length = 100
 target-version = ["py311"]
+
+[tool.mypy]
+python_version = "3.11"
+check_untyped_defs = true
+disallow_untyped_defs = true
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+plugins = []
+files = [
+    "src/backend/app/api/v1/routers/uploads.py",
+    "src/backend/app/api/v1/routers/tasks.py",
+    "src/backend/app/api/v1/schemas.py",
+    "src/backend/app/core/errors.py",
+]
+
+[tool.bandit]
+skips = ["B101"]  # assert used in tests
+exclude_dirs = [".venv", "venv", "tests"]
+
+[tool.pytest.ini_options]
+addopts = "--cov=src/backend/app --cov-report=term-missing --cov-fail-under=80"
+testpaths = ["tests"]

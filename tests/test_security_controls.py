@@ -10,7 +10,7 @@ import pytest
 from adapters.db.repositories.base import ForbiddenError
 from app.api.v1.deps import auth as auth_deps
 from app.api.v1.routers import uploads as uploads_module
-from app.api.v1.schemas import TaskCreate, TaskUpdate
+from app.api.v1.schemas import TaskCreate, TaskRead, TaskUpdate
 from app.main import app
 from domain.value_objects.task_priority import TaskPriority
 from domain.value_objects.task_state import TaskState
@@ -30,6 +30,17 @@ class DummyTaskService:
     def __init__(self):
         self.list_calls: list[dict] = []
         self.admin_calls: list[dict] = []
+        self.create_calls: list[dict] = []
+        self.update_calls: list[dict] = []
+        self.delete_calls: list[uuid.UUID] = []
+        self.sample_task = TaskRead(
+            id=uuid.uuid4(),
+            name="Sample",
+            description="Desc",
+            state=TaskState.TODO,
+            priority=TaskPriority.LOW,
+            owner_id=uuid.uuid4(),
+        )
 
     async def list_tasks(
         self,
@@ -50,6 +61,21 @@ class DummyTaskService:
             }
         )
         return []
+
+    async def create_task(self, **kwargs):
+        self.create_calls.append(kwargs)
+        return self.sample_task
+
+    async def get_task(self, *_, **__):
+        return self.sample_task
+
+    async def update_task(self, *_, **kwargs):
+        self.update_calls.append(kwargs)
+        return self.sample_task
+
+    async def delete_task(self, task_id, *, owner_id):
+        self.delete_calls.append(task_id)
+        return None
 
     async def admin_list_all(
         self,
@@ -358,3 +384,42 @@ def test_problem_details_instance_matches_url(client: TestClient):
     assert response.status_code == 404
     body = response.json()
     assert body["instance"].endswith("/api/v1/nothing-here")
+
+
+def test_create_task_calls_service(client: TestClient, task_service_spy: DummyTaskService):
+    payload = {
+        "name": "My task",
+        "description": "detail",
+        "state": "todo",
+        "priority": "low",
+    }
+    response = client.post("/api/v1/tasks/", json=payload)
+    assert response.status_code == 201
+    call = task_service_spy.create_calls[-1]
+    assert call["name"] == "My task"
+    assert call["description"] == "detail"
+
+
+def test_get_task_returns_payload(client: TestClient):
+    task_id = uuid.uuid4()
+    response = client.get(f"/api/v1/tasks/{task_id}")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["name"] == "Sample"
+
+
+def test_update_task_passes_fields(client: TestClient, task_service_spy: DummyTaskService):
+    task_id = uuid.uuid4()
+    payload = {"name": "Updated", "priority": "high"}
+    response = client.patch(f"/api/v1/tasks/{task_id}", json=payload)
+    assert response.status_code == 200
+    call = task_service_spy.update_calls[-1]
+    assert call["name"] == "Updated"
+    assert call["priority"] == TaskPriority.HIGH
+
+
+def test_delete_task_returns_no_content(client: TestClient, task_service_spy: DummyTaskService):
+    task_id = uuid.uuid4()
+    response = client.delete(f"/api/v1/tasks/{task_id}")
+    assert response.status_code == 204
+    assert task_id in task_service_spy.delete_calls

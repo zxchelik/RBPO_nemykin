@@ -1,3 +1,5 @@
+from typing import NoReturn
+
 from adapters.db.repositories.base import ForbiddenError as RepoForbidden
 from adapters.db.repositories.base import NotFoundError as RepoNotFound
 from app.core.errors import ProblemException
@@ -5,7 +7,7 @@ from fastapi import status
 from services.errors import ConflictError
 
 
-def map_service_errors(exc: Exception) -> None:
+def map_service_errors(exc: Exception) -> NoReturn:
     if isinstance(exc, RepoForbidden):
         raise ProblemException(
             status_code=status.HTTP_403_FORBIDDEN,

@@ -1,11 +1,11 @@
 import datetime as dt
 import uuid
-from typing import Optional
+from typing import Any, Optional, cast
 
 from app.api.v1.deps.auth import admin_required, get_current_user
 from app.api.v1.schemas import TaskCreate, TaskRead, TaskUpdate
 from domain.value_objects.task_state import TaskState
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response
 from services.fastapi_adapters import map_service_errors
 from services.task_service import TaskService, get_task_service
 
@@ -24,8 +24,8 @@ def _normalize_dt(value: Optional[dt.datetime]) -> Optional[dt.datetime]:
 async def create_task(
     payload: TaskCreate,
     svc: TaskService = Depends(get_task_service),
-    current_user=Depends(get_current_user),
-):
+    current_user: Any = Depends(get_current_user),
+) -> TaskRead:
     try:
         task = await svc.create_task(
             owner_id=current_user.id,
@@ -38,6 +38,7 @@ async def create_task(
         return task
     except Exception as e:
         map_service_errors(e)
+        raise
 
 
 @router.get("/", response_model=list[TaskRead])
@@ -47,31 +48,36 @@ async def list_tasks(
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0, le=1000),
     svc: TaskService = Depends(get_task_service),
-    current_user=Depends(get_current_user),
-):
+    current_user: Any = Depends(get_current_user),
+) -> list[TaskRead]:
     try:
-        tasks = await svc.list_tasks(
-            owner_id=current_user.id,
-            status=status,
-            due_before=_normalize_dt(due_before),
-            limit=limit,
-            offset=offset,
+        tasks = cast(
+            list[TaskRead],
+            await svc.list_tasks(
+                owner_id=current_user.id,
+                status=status,
+                due_before=_normalize_dt(due_before),
+                limit=limit,
+                offset=offset,
+            ),
         )
         return tasks
     except Exception as e:
         map_service_errors(e)
+        raise
 
 
 @router.get("/{task_id}", response_model=TaskRead)
 async def get_task(
     task_id: uuid.UUID,
     svc: TaskService = Depends(get_task_service),
-    current_user=Depends(get_current_user),
-):
+    current_user: Any = Depends(get_current_user),
+) -> TaskRead:
     try:
         return await svc.get_task(task_id, owner_id=current_user.id)
     except Exception as e:
         map_service_errors(e)
+        raise
 
 
 @router.patch("/{task_id}", response_model=TaskRead)
@@ -79,8 +85,8 @@ async def update_task(
     task_id: uuid.UUID,
     payload: TaskUpdate,
     svc: TaskService = Depends(get_task_service),
-    current_user=Depends(get_current_user),
-):
+    current_user: Any = Depends(get_current_user),
+) -> TaskRead:
     try:
         return await svc.update_task(
             task_id,
@@ -93,19 +99,21 @@ async def update_task(
         )
     except Exception as e:
         map_service_errors(e)
+        raise
 
 
 @router.delete("/{task_id}", status_code=204)
 async def delete_task(
     task_id: uuid.UUID,
     svc: TaskService = Depends(get_task_service),
-    current_user=Depends(get_current_user),
-):
+    current_user: Any = Depends(get_current_user),
+) -> Response:
     try:
         await svc.delete_task(task_id, owner_id=current_user.id)
-        return {"ok": True}
+        return Response(status_code=204)
     except Exception as e:
         map_service_errors(e)
+        raise
 
 
 # ------------------------------ Admin endpoints ------------------------------
@@ -119,14 +127,18 @@ async def admin_list_all_tasks(
     limit: int = Query(default=100, ge=1, le=200),
     offset: int = Query(default=0, ge=0, le=2000),
     svc: TaskService = Depends(get_task_service),
-    _admin=Depends(admin_required),
-):
+    _admin: Any = Depends(admin_required),
+) -> list[TaskRead]:
     try:
-        return await svc.admin_list_all(
-            status=status,
-            due_before=_normalize_dt(due_before),
-            limit=limit,
-            offset=offset,
+        return cast(
+            list[TaskRead],
+            await svc.admin_list_all(
+                status=status,
+                due_before=_normalize_dt(due_before),
+                limit=limit,
+                offset=offset,
+            ),
         )
     except Exception as e:
         map_service_errors(e)
+        raise

@@ -62,7 +62,9 @@ docker compose -f compose.yaml up -d
 
 ```bash
 ruff check --fix . && black . && isort .
-pytest -q
+mypy src
+bandit -c bandit.yaml
+pytest --cov
 pre-commit run --all-files
 ```
 

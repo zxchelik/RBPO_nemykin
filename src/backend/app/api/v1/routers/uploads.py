@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import Tuple
+from typing import Dict, Tuple
 
 from app.core import errors as error_handlers
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
@@ -35,7 +35,7 @@ def detect_file_type(data: bytes) -> Tuple[str, str]:
     status_code=status.HTTP_201_CREATED,
     summary="Безопасная загрузка файла",
 )
-async def upload_file(request: Request, file: UploadFile = File(...)):
+async def upload_file(request: Request, file: UploadFile = File(...)) -> Dict[str, object]:
     # Читаем файл в память
     data = await file.read()
 
