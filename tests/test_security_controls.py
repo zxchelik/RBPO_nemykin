@@ -2,17 +2,22 @@ from __future__ import annotations
 
 import datetime as dt
 import os
+import uuid
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
+from adapters.db.repositories.base import ForbiddenError
+from app.api.v1.deps import auth as auth_deps
 from app.api.v1.routers import uploads as uploads_module
-from app.api.v1.schemas import TaskCreate
+from app.api.v1.schemas import TaskCreate, TaskUpdate
 from app.main import app
 from domain.value_objects.task_priority import TaskPriority
 from domain.value_objects.task_state import TaskState
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
+from services.task_service import get_task_service
 
 if not any(getattr(route, "path", None) == "/__test__/http-error" for route in app.router.routes):
 
@@ -21,8 +26,85 @@ if not any(getattr(route, "path", None) == "/__test__/http-error" for route in a
         raise HTTPException(status_code=403, detail="Sensitive detail")
 
 
+class DummyTaskService:
+    def __init__(self):
+        self.list_calls: list[dict] = []
+        self.admin_calls: list[dict] = []
+
+    async def list_tasks(
+        self,
+        *,
+        owner_id,
+        status=None,
+        due_before=None,
+        limit=50,
+        offset=0,
+    ):
+        self.list_calls.append(
+            {
+                "owner_id": owner_id,
+                "status": status,
+                "due_before": due_before,
+                "limit": limit,
+                "offset": offset,
+            }
+        )
+        return []
+
+    async def admin_list_all(
+        self,
+        *,
+        status=None,
+        due_before=None,
+        limit=100,
+        offset=0,
+    ):
+        self.admin_calls.append(
+            {
+                "status": status,
+                "due_before": due_before,
+                "limit": limit,
+                "offset": offset,
+            }
+        )
+        return []
+
+
 @pytest.fixture()
-def client() -> TestClient:
+def auth_overrides():
+    user = SimpleNamespace(id=uuid.uuid4(), is_admin=True)
+
+    def _current_user_override():
+        return user
+
+    def _admin_override():
+        return user
+
+    app.dependency_overrides[auth_deps.get_current_user] = _current_user_override
+    app.dependency_overrides[auth_deps.admin_required] = _admin_override
+    try:
+        yield user
+    finally:
+        app.dependency_overrides.pop(auth_deps.get_current_user, None)
+        app.dependency_overrides.pop(auth_deps.admin_required, None)
+
+
+@pytest.fixture()
+def task_service_spy():
+    service = DummyTaskService()
+
+    async def _override():
+        return service
+
+    app.dependency_overrides[get_task_service] = _override
+    try:
+        yield service
+    finally:
+        app.dependency_overrides.pop(get_task_service, None)
+
+
+@pytest.fixture()
+def client(auth_overrides, task_service_spy) -> TestClient:
     with TestClient(app) as test_client:
         yield test_client
 
@@ -128,3 +210,151 @@ def test_upload_rejects_invalid_signature(client: TestClient, uploads_dir, monke
     assert response.status_code == 400
     body = response.json()
     assert body["errors"]["message"] == "Unsupported or invalid file type."
+
+
+def test_list_tasks_rejects_large_limit(client: TestClient):
+    response = client.get("/api/v1/tasks/?limit=5000")
+    assert response.status_code == 400
+    body = response.json()
+    assert body["title"] == "Validation error"
+    violation = body["errors"]["fields"][0]
+    assert violation["loc"] == ["query", "limit"]
+    assert violation["type"] == "less_than_equal"
+
+
+def test_list_tasks_normalizes_due_before(client: TestClient, task_service_spy: DummyTaskService):
+    response = client.get("/api/v1/tasks/", params={"due<": "2024-02-01T00:00:00"})
+    assert response.status_code == 200
+    assert response.json() == []
+    call = task_service_spy.list_calls[-1]
+    assert call["due_before"].tzinfo == dt.timezone.utc
+    assert call["due_before"].isoformat() == "2024-02-01T00:00:00+00:00"
+
+
+def test_task_create_rejects_long_description():
+    long_text = "A" * 3000
+    with pytest.raises(ValidationError):
+        TaskCreate(
+            name="valid name",
+            description=long_text,
+            state=TaskState.TODO,
+            priority=TaskPriority.MEDIUM,
+        )
+
+
+def test_task_update_trims_optional_fields():
+    payload = TaskUpdate(
+        name="  Trimmed ",
+        description="  Desc  ",
+        due_at=dt.datetime(2024, 5, 1, 12, 0, 0),
+    )
+    assert payload.name == "Trimmed"
+    assert payload.description == "Desc"
+    assert payload.due_at.tzinfo == dt.timezone.utc
+
+
+def test_task_create_converts_naive_due_at_to_utc():
+    due = dt.datetime(2024, 1, 1, 12, 30, 0)
+    task = TaskCreate(
+        name="Task",
+        description="Desc",
+        state=TaskState.DONE,
+        priority=TaskPriority.HIGH,
+        due_at=due,
+    )
+    assert task.due_at.tzinfo == dt.timezone.utc
+    assert task.due_at.isoformat() == "2024-01-01T12:30:00+00:00"
+
+
+def test_upload_directory_symlink_rejected(client: TestClient, uploads_dir: Path):
+    real_dir = uploads_dir.parent / "real_uploads"
+    real_dir.mkdir()
+    uploads_dir.rmdir()
+    uploads_dir.symlink_to(real_dir, target_is_directory=True)
+
+    response = client.post(
+        "/api/v1/uploads",
+        headers={"X-Correlation-ID": "cid-symlink"},
+        files={"file": ("test.png", b"\x89PNG\r\n\x1a\npayload", "image/png")},
+    )
+    assert response.status_code == 500
+    body = response.json()
+    assert body["title"] == "Internal Server Error"
+    assert body["status"] == 500
+
+
+def test_upload_conflict_when_file_exists(client: TestClient, uploads_dir, monkeypatch):
+    monkeypatch.setattr(uploads_module, "MAX_UPLOAD_SIZE", 1024 * 1024)
+    data = b"\x89PNG\r\n\x1a\npayload"
+    headers = {"X-Correlation-ID": "same-id"}
+
+    first = client.post(
+        "/api/v1/uploads",
+        headers=headers,
+        files={"file": ("test.png", data, "image/png")},
+    )
+    assert first.status_code == 201
+
+    second = client.post(
+        "/api/v1/uploads",
+        headers=headers,
+        files={"file": ("test.png", data, "image/png")},
+    )
+    assert second.status_code == 409
+    assert second.json()["errors"]["message"] == "File already exists."
+
+
+def test_admin_list_tasks_enforces_limit(client: TestClient):
+    response = client.get("/api/v1/admin/tasks/?limit=999")
+    assert response.status_code == 400
+    assert response.json()["title"] == "Validation error"
+
+
+def test_admin_list_tasks_normalizes_due_before(
+    client: TestClient, task_service_spy: DummyTaskService
+):
+    response = client.get(
+        "/api/v1/admin/tasks/",
+        params={"due<": "2024-03-01T03:00:00+03:00"},
+    )
+    assert response.status_code == 200
+    call = task_service_spy.admin_calls[-1]
+    assert call["due_before"].tzinfo == dt.timezone.utc
+    assert call["due_before"].isoformat() == "2024-03-01T00:00:00+00:00"
+
+
+def test_list_tasks_rejects_negative_offset(client: TestClient):
+    response = client.get("/api/v1/tasks/?offset=-5")
+    assert response.status_code == 400
+    violation = response.json()["errors"]["fields"][0]
+    assert violation["loc"] == ["query", "offset"]
+    assert violation["type"] == "greater_than_equal"
+
+
+def test_tasks_endpoint_maps_repo_forbidden(client: TestClient):
+    prev_override = app.dependency_overrides[get_task_service]
+
+    class FailingService:
+        async def list_tasks(self, **kwargs):
+            raise ForbiddenError("nope")
+
+    async def _override():
+        return FailingService()
+
+    app.dependency_overrides[get_task_service] = _override
+    try:
+        response = client.get("/api/v1/tasks/")
+    finally:
+        app.dependency_overrides[get_task_service] = prev_override
+
+    assert response.status_code == 403
+    body = response.json()
+    assert body["title"] == "Forbidden"
+    assert body["errors"]["code"] == "tasks.forbidden"
+
+
+def test_problem_details_instance_matches_url(client: TestClient):
+    response = client.get("/api/v1/nothing-here", headers={"X-Correlation-ID": "inst"})
+    assert response.status_code == 404
+    body = response.json()
+    assert body["instance"].endswith("/api/v1/nothing-here")
