@@ -5,15 +5,14 @@ import os
 from pathlib import Path
 
 import pytest
-from fastapi import HTTPException
-from fastapi.testclient import TestClient
-from pydantic import ValidationError
-
 from app.api.v1.routers import uploads as uploads_module
 from app.api.v1.schemas import TaskCreate
 from app.main import app
 from domain.value_objects.task_priority import TaskPriority
 from domain.value_objects.task_state import TaskState
+from fastapi import HTTPException
+from fastapi.testclient import TestClient
+from pydantic import ValidationError
 
 if not any(getattr(route, "path", None) == "/__test__/http-error" for route in app.router.routes):
 
