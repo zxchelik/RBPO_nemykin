@@ -11,6 +11,39 @@ from starlette.status import HTTP_400_BAD_REQUEST, HTTP_500_INTERNAL_SERVER_ERRO
 logger = logging.getLogger(__name__)
 
 
+class ProblemException(Exception):
+    """
+    Custom exception that carries metadata for RFC 7807 responses.
+    """
+
+    def __init__(
+        self,
+        *,
+        status_code: int,
+        title: str,
+        detail: str,
+        type_: str = "about:blank",
+        errors: Optional[Dict[str, Any]] = None,
+    ):
+        self.status_code = status_code
+        self.title = title
+        self.detail = detail
+        self.type_ = type_
+        self.errors = errors or {}
+
+
+HTTP_STATUS_TITLES = {
+    400: "Bad Request",
+    401: "Unauthorized",
+    403: "Forbidden",
+    404: "Not Found",
+    409: "Conflict",
+    413: "Payload Too Large",
+    429: "Too Many Requests",
+    500: "Internal Server Error",
+}
+
+
 def get_correlation_id(request: Request) -> str:
     """
     Возвращаем correlation_id из state или заголовка.
@@ -46,14 +79,37 @@ def problem_response(
     if extra:
         problem.update(extra)
 
-    return JSONResponse(status_code=status_code, content=problem)
+    return JSONResponse(
+        status_code=status_code,
+        content=problem,
+        headers={"X-Correlation-ID": correlation_id},
+    )
+
+
+async def problem_exception_handler(request: Request, exc: ProblemException) -> JSONResponse:
+    extra = {"errors": exc.errors} if exc.errors else None
+    return problem_response(
+        request,
+        status_code=exc.status_code,
+        title=exc.title,
+        detail=exc.detail,
+        type_=exc.type_,
+        extra=extra,
+    )
 
 
 async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
     """
     Хэндлер для HTTPException (404, 401, 403 и т.п.)
     """
-    title = exc.detail if isinstance(exc.detail, str) else "HTTP error"
+    title = HTTP_STATUS_TITLES.get(exc.status_code, "HTTP error")
+    error_map: Dict[str, Any] = {"code": "http_error"}
+    if isinstance(exc.detail, dict):
+        error_map.update(exc.detail)
+    elif isinstance(exc.detail, list):
+        error_map["messages"] = exc.detail
+    elif isinstance(exc.detail, str) and exc.status_code < 500:
+        error_map["message"] = exc.detail
 
     return problem_response(
         request,
@@ -61,6 +117,7 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException) 
         title=title,
         detail="Request cannot be processed.",
         type_=f"https://example.com/problems/http-{exc.status_code}",
+        extra={"errors": error_map},
     )
 
 
@@ -71,7 +128,7 @@ async def validation_exception_handler(
     Хэндлер для ошибок валидации FastAPI/Pydantic.
     """
     errors = exc.errors()
-    extra = {"errors": errors}
+    extra = {"errors": {"fields": errors}}
     return problem_response(
         request,
         status_code=HTTP_400_BAD_REQUEST,

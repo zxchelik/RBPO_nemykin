@@ -12,6 +12,14 @@ from services.task_service import TaskService, get_task_service
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
 
+def _normalize_dt(value: Optional[dt.datetime]) -> Optional[dt.datetime]:
+    if value is None:
+        return value
+    if value.tzinfo is None:
+        return value.replace(tzinfo=dt.timezone.utc)
+    return value.astimezone(dt.timezone.utc)
+
+
 @router.post("/", response_model=TaskRead, status_code=201)
 async def create_task(
     payload: TaskCreate,
@@ -34,10 +42,10 @@ async def create_task(
 
 @router.get("/", response_model=list[TaskRead])
 async def list_tasks(
-    status: Optional[TaskState] = Query(None, alias="status"),
-    due_before: Optional[dt.datetime] = Query(None, alias="due<"),
-    limit: int = 50,
-    offset: int = 0,
+    status: Optional[TaskState] = Query(default=None, alias="status"),
+    due_before: Optional[dt.datetime] = Query(default=None, alias="due<"),
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0, le=1000),
     svc: TaskService = Depends(get_task_service),
     current_user=Depends(get_current_user),
 ):
@@ -45,7 +53,7 @@ async def list_tasks(
         tasks = await svc.list_tasks(
             owner_id=current_user.id,
             status=status,
-            due_before=due_before,
+            due_before=_normalize_dt(due_before),
             limit=limit,
             offset=offset,
         )
@@ -106,16 +114,19 @@ admin_router = APIRouter(prefix="/admin/tasks", tags=["admin:tasks"])
 
 @admin_router.get("/", response_model=list[TaskRead])
 async def admin_list_all_tasks(
-    status: Optional[TaskState] = Query(None, alias="status"),
-    due_before: Optional[dt.datetime] = Query(None, alias="due<"),
-    limit: int = 100,
-    offset: int = 0,
+    status: Optional[TaskState] = Query(default=None, alias="status"),
+    due_before: Optional[dt.datetime] = Query(default=None, alias="due<"),
+    limit: int = Query(default=100, ge=1, le=200),
+    offset: int = Query(default=0, ge=0, le=2000),
     svc: TaskService = Depends(get_task_service),
     _admin=Depends(admin_required),
 ):
     try:
         return await svc.admin_list_all(
-            status=status, due_before=due_before, limit=limit, offset=offset
+            status=status,
+            due_before=_normalize_dt(due_before),
+            limit=limit,
+            offset=offset,
         )
     except Exception as e:
         map_service_errors(e)
