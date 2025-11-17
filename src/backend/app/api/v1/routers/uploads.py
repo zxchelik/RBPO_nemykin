@@ -1,5 +1,6 @@
+import os
 from pathlib import Path
-from typing import Tuple
+from typing import Dict, Tuple
 
 from app.core import errors as error_handlers
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
@@ -9,6 +10,7 @@ router = APIRouter(prefix="/uploads", tags=["uploads"])
 UPLOAD_DIR = Path("uploads")
 MAX_UPLOAD_SIZE = 5 * 1024 * 1024  # 5 MB
 ALLOWED_EXTENSIONS = {".png", ".jpg", ".jpeg", ".pdf"}
+SECURE_FILE_MODE = 0o600
 
 
 def detect_file_type(data: bytes) -> Tuple[str, str]:
@@ -33,7 +35,7 @@ def detect_file_type(data: bytes) -> Tuple[str, str]:
     status_code=status.HTTP_201_CREATED,
     summary="Безопасная загрузка файла",
 )
-async def upload_file(request: Request, file: UploadFile = File(...)):
+async def upload_file(request: Request, file: UploadFile = File(...)) -> Dict[str, object]:
     # Читаем файл в память
     data = await file.read()
 
@@ -56,18 +58,49 @@ async def upload_file(request: Request, file: UploadFile = File(...)):
     safe_name = f"{cid}{ext}"
 
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    if UPLOAD_DIR.is_symlink():
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Upload directory misconfigured.",
+        )
 
     target_path = (UPLOAD_DIR / safe_name).resolve()
     upload_root = UPLOAD_DIR.resolve()
 
     # Доп. защита: убеждаемся, что файл пишется внутрь UPLOAD_DIR
-    if upload_root not in target_path.parents and target_path != upload_root:
+    try:
+        target_path.relative_to(upload_root)
+    except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid upload path.",
         )
 
-    target_path.write_bytes(data)
+    if target_path.exists() and target_path.is_symlink():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid upload path.",
+        )
+
+    try:
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+        if hasattr(os, "O_NOFOLLOW"):
+            flags |= os.O_NOFOLLOW
+        fd = os.open(target_path, flags, SECURE_FILE_MODE)
+        try:
+            os.write(fd, data)
+        finally:
+            os.close(fd)
+    except FileExistsError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="File already exists.",
+        )
+    except OSError:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Could not store the uploaded file.",
+        )
 
     return {
         "filename": safe_name,
