@@ -5,12 +5,12 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=on \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 WORKDIR /src
-# hadolint ignore=DL3018
+# hadolint ignore=DL3008,DL3018
 RUN apt-get update \
     && apt-get install -y --no-install-recommends build-essential gcc libffi-dev libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 COPY requirements.txt ./
-RUN python -m pip install --upgrade pip==24.2 wheel==0.44.0 \
+RUN python -m pip install --no-cache-dir --upgrade pip==24.2 wheel==0.44.0 \
     && pip wheel --no-cache-dir --wheel-dir /wheels -r requirements.txt
 
 FROM python:3.11.9-slim-bookworm AS runtime
@@ -19,7 +19,7 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONPATH=/app
 WORKDIR /app
-# hadolint ignore=DL3018
+# hadolint ignore=DL3008,DL3018
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl netcat-openbsd \
     && rm -rf /var/lib/apt/lists/*
