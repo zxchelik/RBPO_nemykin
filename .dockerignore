@@ -16,3 +16,8 @@ htmlcov/
 node_modules/
 .env
 .qodo
+docs/
+tests/
+.github/
+compose.yaml
+*.log
