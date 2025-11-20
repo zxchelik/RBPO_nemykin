@@ -1,0 +1,57 @@
+services:
+  backend:
+    build:
+      context: .
+      target: runtime
+    image: course-app:local
+    env_file:
+      - .env
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      SECRET_KEY: ${SECRET_KEY:-dev-secret}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 5
+    volumes:
+      - uploads-data:/app/uploads
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16.4-alpine3.20
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: task-manager
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  db-data:
+  uploads-data:
