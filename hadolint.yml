@@ -1,0 +1,4 @@
+failure-threshold: info
+format: tty
+trustedRegistries:
+  - docker.io
