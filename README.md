@@ -1,5 +1,7 @@
 # Task Tracker
 
+![CI](https://github.com/zxchelik/RBPO_nemykin/actions/workflows/ci.yml/badge.svg)
+
 Личный таск-менеджер с приоритетами, дедлайнами и фильтрацией.
 MVP включает CRUD задач, авторизацию пользователей и работу только с собственными задачами.
 
